@@ -1,0 +1,100 @@
+---
+title: "Backseat Coach Article Code"
+link: https://www.backseatcoach.com/blog/halfway-point-review-2021-mlb-season
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#data cleaning
+```{r, include = FALSE}
+#reading packages in
+library(ggimage)
+library(tidyverse)
+library(imager)
+library(magick)
+
+#readign both data sets in
+tms_a <- read_csv("mlb_batting_2021_7132021.csv")
+tms_p_a <- read_csv("mlb_pitch_2021_7132021.csv")
+
+#combining data sets
+tms_mlb <- cbind(tms, tms_p)
+
+#removing duplicates
+dups = which(duplicated(names(tms_mlb)) & names(tms_mlb) == "Tm")
+tms_mlb = tms_mlb[,-dups]
+
+#removing last two league average and total rows
+n<-dim(tms_mlb)[1]
+tms_mlb_u <-tms_mlb[1:(n-2),]
+
+#creating new variables and renaming variables 
+tms_1 <- tms_mlb_u %>%
+  rename("HA" = H.1, "RA" = R.1, "LOBA" = LOB.1, "BBA" = BB.1, "IBBA" = IBB.1, "SOA" = SO.1, "HBPA" = HBP.1, "HRA" = HR.1) %>%
+  mutate(`1B` = H - (`2B` + `3B`),
+wOBA = round((.69*BB + .72*HBP + .89*`1B` + 1.27*`2B` + 1.62*`3B` + 2.10*HR) / (AB + BB - IBB + SF + HBP), digits = 3), ISO = SLG - BA)
+
+#ordering teams alphabetically
+tms_mlb_fj <- tms_1[order(tms_mlb_fj$Tm),]
+
+#creating a data frame of the teams' logo images
+logos <- list.files("D:/R/FUN/RProjects/mlblogoimages")
+imgs_df <- as.data.frame(logos)
+
+#combining the data set with the logo data frame
+tms_mlb_f <- cbind(tms_mlb_fj, imgs_df)
+tms_mlb_f$logos <- paste0("D:/R/FUN/RProjects/mlblogoimages/", tms_mlb_f$logos)
+```
+
+#top 5 for OPS+
+```{r}
+#arranging OPS+ in descending order to find top 20
+tms_mlb_f %>%
+select(Tm, `OPS+`) %>%
+arrange(-`OPS+`) %>%
+top_n(20)
+```
+
+#top 5 for ERA+
+```{r}
+#arranging ERA+ in descending order to find top 20
+tms_mlb_f %>%
+select(Tm, `ERA+`) %>%
+arrange(-`ERA+`) %>%
+top_n(20)
+```
+
+#league average OPS+ and ERA+
+```{r}
+#filtered earlier data set to see OPS+ and ERA+ for League Average
+tms_mlb %>%
+  select(Tm, `OPS+`, `ERA+`) %>% 
+  filter(Tm == "League Average")
+```
+
+#plot for ERA+ vs OPS+
+```{r}
+#created scatter plot with dashed lines representing league averages
+opspluseraplus_plot <- ggplot(tms_mlb_f, aes(`OPS+`, `ERA+`)) + geom_point(color = "white") + geom_vline(xintercept = 97, linetype="dashed", color="darkred") + geom_hline(yintercept = 101, linetype="dashed", color="darkred") + ggtitle("Teams OPS+ and ERA+ vs League Average OPS+ and ERA+") + theme_classic() + theme(plot.title = element_text(face = "bold", size = 16, hjust = .5), axis.title.y = element_text(size = 13, face = "bold"), axis.title.x = element_text(size = 13, face = "bold"))
+```
+
+#processing and saving the image
+```{r}
+#used ggimage to assign image to each point in plot
+mlb_img <- opspluseraplus_plot +
+  geom_image(
+aes(
+x = `OPS+`, y = `ERA+`,
+image = logos
+),
+size = .075
+)
+ggsave(
+"mlb_plot_opspluseraplus.png", mlb_img,
+height = 10, width = 16, dpi = "retina"
+)
+```
+
